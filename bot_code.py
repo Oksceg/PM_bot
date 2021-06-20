@@ -47,7 +47,7 @@ def clean_quote(quotes):
         quotes_words.append(spl_quote)
     return quotes_words
 
-xl = pd.ExcelFile("C:\ФИКЛ\для питона\типапроект\SW_quotes.xlsx")
+xl = pd.ExcelFile("static/SW_quotes_app.xlsx")
 df = xl.parse("All memes")
 cleaned_quotes = clean_quote(df['quote'])
 df["Words from quote"] = cleaned_quotes
@@ -137,7 +137,7 @@ app = flask.Flask(__name__)
 @bot.message_handler(commands=["start", "help"])
 def say_hello(message):
     bot.send_message(message.chat.id, "Ну привет! Здесь вы можете искать любые шаблоны мемов 'приквелов' — I, II и III эпизодов франшизы 'Звёздные Войны' — на английском.\nВ этом боте есть несколько команд, которые могут понадобиться для поиска:\n/word_search — поиск шаблона мема по одному слову \n/name_search — поиск всех мемов, фразы из которых принадлежат определенному персонажу\n/characters — список персонажей, фразы которых разошлись по цитат.\n/find_meme — данная команда пришлет тебе какой-нибудь мем по Звёздным Войнам с Реддита.")
-    hello_there = open("C:/ФИКЛ/для питона/типапроект/3/HT.PNG", "rb")
+    hello_there = open("static/3/HT.PNG", "rb")
     bot.send_photo(message.chat.id, hello_there)
 
 @bot.message_handler(commands=["word_search"])
@@ -156,7 +156,7 @@ def w_suggest(message):
                 bot.send_photo(message.chat.id, photo)
                 times += 1
     if times == 0:
-        arc_nan = open("C:/ФИКЛ/для питона/типапроект/2/exist_meme.PNG", "rb")
+        arc_nan = open("static/2/exist_meme.PNG", "rb")
         bot.send_photo(message.chat.id, arc_nan)
         bot.send_message(message.chat.id, "Мне очень жаль, но похоже, мема, который вы ищете, не существует. Возможно, наши данные неполные или же такого мема еще нет...")
     bot.send_message(message.chat.id, "Да пребудет с вами сила!\nЕсли хотите попробовать еще, просто запустите /word_search. \nТакже вы можете посмотреть на другие команды, запустив /start.")
