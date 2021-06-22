@@ -1,24 +1,26 @@
 import conf
-from conf import *
+from conf import TOKEN
+from conf import WEBHOOK_HOST
+from conf import WEBHOOK_PORT
 import telebot
 import requests
 import pandas as pd
 import time
 import flask
-from pymorphy2 import MorphAnalyzer
+import nltk
+nltk.download('wordnet')
 from nltk import WordNetLemmatizer
-from telebot import types
 from random import choice
 from bs4 import BeautifulSoup
 
-WEBHOOK_URL_BASE = "https://{}:{}".format(conf.WEBHOOK_HOST, conf.WEBHOOK_PORT)
+WEBHOOK_URL_BASE = "https://{}:{}".format(WEBHOOK_HOST, WEBHOOK_PORT)
 WEBHOOK_URL_PATH = "/{}/".format(conf.TOKEN)
 
 def find_meme():
     img_srcs = []
-    url_redd = "https://www.reddit.com/r/PrequelMemes/top/?t=month"
+    url_redd = "https://www.reddit.com/r/PrequelMemes/top/?t=week"
     while True:
-        time.sleep(2)
+        time.sleep(1)
         response = requests.get(url_redd)
         soup = BeautifulSoup(response.content, 'html.parser')
         images = soup.find_all("img", {"alt": "Post image"})
@@ -47,10 +49,11 @@ def clean_quote(quotes):
         quotes_words.append(spl_quote)
     return quotes_words
 
-xl = pd.ExcelFile("static/SW_quotes_app.xlsx")
-df = xl.parse("All memes")
+df = pd.read_csv('/home/oks110/PM_bot/static/PM_quotes.csv', sep='\t', comment='#')
 cleaned_quotes = clean_quote(df['quote'])
 df["Words from quote"] = cleaned_quotes
+
+print(df)
 
 wnl = WordNetLemmatizer()
 
@@ -130,19 +133,19 @@ df["words_and_lems"] = words_and_lems
 bot = telebot.TeleBot(TOKEN, threaded=False)
 
 bot.remove_webhook()
+
 bot.set_webhook(url=WEBHOOK_URL_BASE+WEBHOOK_URL_PATH)
 
 app = flask.Flask(__name__)
 
-@bot.message_handler(commands=["start", "help"])
+@bot.message_handler(commands=["start", "hello_there"])
 def say_hello(message):
-    bot.send_message(message.chat.id, "Ну привет! Здесь вы можете искать любые шаблоны мемов 'приквелов' — I, II и III эпизодов франшизы 'Звёздные Войны' — на английском.\nВ этом боте есть несколько команд, которые могут понадобиться для поиска:\n/word_search — поиск шаблона мема по одному слову \n/name_search — поиск всех мемов, фразы из которых принадлежат определенному персонажу\n/characters — список персонажей, фразы которых разошлись по цитат.\n/find_meme — данная команда пришлет тебе какой-нибудь мем по Звёздным Войнам с Реддита.")
-    hello_there = open("static/3/HT.PNG", "rb")
-    bot.send_photo(message.chat.id, hello_there)
+    bot.send_message(message.chat.id, "Ну привет! Здесь вы можете искать любые шаблоны мемов 'приквелов' — I, II и III эпизодов франшизы 'Звёздные Войны' — на английском.\nВ этом боте есть несколько команд, которые могут понадобиться для поиска:\n/word_search — поиск шаблона мема по одному слову\n/name_search — поиск всех мемов, фразы из которых принадлежат определенному персонажу\n/characters — список персонажей, фразы которых разошлись на цитаты.\n/find_meme — данная команда пришлет какой-нибудь мем по Звёздным Войнам с Реддита.")
+    bot.send_photo(message.chat.id, photo = open('/home/oks110/PM_bot/static/3/HT.png','rb'))
 
 @bot.message_handler(commands=["word_search"])
 def w_s(message):
-    bot.send_message(message.chat.id, "Введите одно слово: ")
+    bot.send_message(message.chat.id, "Введите одно слово на английском\n(можно ввести как нужную форму слова, так и его лемму): ")
     bot.register_next_step_handler(message, w_suggest);
 
 def w_suggest(message):
@@ -152,14 +155,14 @@ def w_suggest(message):
     for index, line in enumerate(df["words_and_lems"]):
         for word in line:
             if ent_word == word:
-                photo = open(f'{df["image_path_local"][index]}', 'rb')
-                bot.send_photo(message.chat.id, photo)
+                photo = open(f'{df["image_path_local"][index]}','rb')
+                bot.send_photo(message.chat.id, photo, timeout=10)
                 times += 1
     if times == 0:
-        arc_nan = open("static/2/exist_meme.PNG", "rb")
-        bot.send_photo(message.chat.id, arc_nan)
-        bot.send_message(message.chat.id, "Мне очень жаль, но похоже, мема, который вы ищете, не существует. Возможно, наши данные неполные или же такого мема еще нет...")
-    bot.send_message(message.chat.id, "Да пребудет с вами сила!\nЕсли хотите попробовать еще, просто запустите /word_search. \nТакже вы можете посмотреть на другие команды, запустив /start.")
+        with open("/home/oks110/PM_bot/static/2/exist_meme.png","rb") as f:
+            bot.send_photo(message.chat.id, photo = f)
+            bot.send_message(message.chat.id, "Мне очень жаль, но похоже, мема, который вы ищете, не существует. Возможно, наши данные неполные или же такого мема еще нет...")
+    bot.send_message(message.chat.id, "Да пребудет с вами сила!\nЕсли хотите попробовать еще, просто запустите /word_search. \nТакже вы можете посмотреть на другие команды, запустив /hello_there.")
 
 @bot.message_handler(commands=["name_search"])
 def n_s(message):
@@ -171,8 +174,28 @@ def n_suggest(message):
     if ent_name == "Obiwan" or ent_name == "Obi-wan":
         ent_name = ent_name.replace("Obiwan", "Obi-Wan")
         ent_name = ent_name.replace("Obi-wan", "Obi-Wan")
+    elif ent_name == "Quigon" or ent_name == "Qui-gon":
+        ent_name = ent_name.replace("Quigon", "Qui-gon")
+        ent_name = ent_name.replace("Qui-gon", "Qui-gon")
     elif ent_name == "Padmé":
         ent_name = ent_name.replace("Padmé", "Padme")
+    elif ent_name == "Vader":
+        ent_name = ent_name.replace("Vader", "Darth Vader")
+    elif ent_name == "Sidious":
+        ent_name = ent_name.replace("Sidious", "Darth Sidious")
+    elif ent_name == "Boba":
+        ent_name = ent_name.replace("Boba", "Boba Fett")
+    elif ent_name == "Jango":
+        ent_name = ent_name.replace("Jango", "Jango Fett")
+    elif ent_name == "Dooku":
+        ent_name = ent_name.replace("Dooku", "Count Dooku")
+    elif ent_name == "Maul":
+        ent_name = ent_name.replace("Maul", "Darth Maul")
+    elif ent_name == "Nute":
+        ent_name = ent_name.replace("Nute", "Nute Gunray")
+    elif ent_name == "Mace" or ent_name == "Windu":
+        ent_name = ent_name.replace("Mace", "Mace Windu")
+        ent_name = ent_name.replace("Windu", "Mace Windu")
     if "Kenobi" in ent_name:
         ent_name = ent_name.replace("Kenobi", "Obi-Wan")
     elif "Skywalker" in ent_name:
@@ -180,28 +203,28 @@ def n_suggest(message):
     elif "Amidala" in ent_name:
         ent_name = ent_name.replace("Amidala", "Padme")
     ntimes = 0
-    bot.send_message(message.from_user.id, f"Отлично! Поищем мемы с цитатами этого персонажа: {ent_name}")
+    bot.send_message(message.from_user.id, f"Отлично! Поищем мемы с цитатами этого персонажа!")
     for index, name in enumerate(df["character"]):
-        if ent_name in name:
-            photo = open(f'{df["image_path_local"][index]}', 'rb')
-            bot.send_photo(message.chat.id, photo)
-            ntimes += 1
+        if ent_name==name:
+            with open(f'{df["image_path_local"][index]}','rb') as f:
+                bot.send_photo(message.chat.id, photo = f)
+                ntimes += 1
     if ntimes == 0:
         bot.send_message(message.chat.id, "Возможно, вы ввели имя не совсем корректно или же цитаты этого персонажа не считаются достаточно мемными. А может быть, наши данные неполные... Посмотрите список персонажей, цитаты которых точно можно встретить в мемах: /characters")
-    bot.send_message(message.chat.id, "Да пребудет с вами сила!\nЕсли хотите попробовать еще, просто запусти /name_search.\nТакже ты можешь посмотреть на другие команды, запустив /start.")
+    bot.send_message(message.chat.id, "Да пребудет с вами сила!\nЕсли хотите попробовать еще, просто запусти /name_search.\nТакже вы можете посмотреть на другие команды, запустив /hello_there.")
 
 @bot.message_handler(commands=["characters"])
-def meme(message):
+def characters(message):
     chars = '\n'.join(sorted(list(set(list(df['character'])))))
     print(chars)
     bot.send_message(message.chat.id, chars)
 
 @bot.message_handler(commands=["find_meme"])
 def meme(message):
-    bot.send_message(message.chat.id, "Ищем мем...")
+    bot.send_message(message.chat.id, "Ищем мем, это может занять некоторое время...")
     link = find_meme()
     bot.send_message(message.chat.id, link)
-    bot.send_message(message.chat.id, "Да пребудет с тобой сила!\nЕсли хочешь еще, нажми на /find_meme. Другие команды ты можешь найти в /start.")
+    bot.send_message(message.chat.id, "Да пребудет с вами сила!\nЕсли хотите еще, нажмите на /find_meme. Другие команды вы можете найти в /hello_there.")
 
 @app.route('/', methods=['GET', 'HEAD'])
 def index():
